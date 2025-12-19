@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Cast your vote securely and anonymously">
+    <meta name="theme-color" content="#DA291C">
+    <title>Vote Now - Secure & Anonymous</title>
+    
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="styles/voting.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="voting-header">
+        <div class="header-content">
+            <h1 class="header-title">🗳️ Blind Voting System</h1>
+            <div id="electionStatus" class="election-status">
+                <span class="status-dot"></span>
+                <span class="status-text">Loading...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="app-container">
+        <!-- Loading State -->
+        <div id="loadingState" class="glass-panel loading-panel">
+            <div class="loading-spinner"></div>
+            <p>Loading election...</p>
+        </div>
+
+        <!-- Voting Closed State -->
+        <div id="closedState" class="glass-panel closed-panel hidden">
+            <div class="closed-icon">🔒</div>
+            <h2>Voting is Currently Closed</h2>
+            <p>Please check back later when voting opens.</p>
+        </div>
+
+        <!-- Already Voted State -->
+        <div id="votedState" class="glass-panel voted-panel hidden">
+            <div class="voted-icon">✅</div>
+            <h2>Thank You for Voting!</h2>
+            <p>You have already cast your vote in this election.</p>
+            <p id="resultsAvailableMessage" class="results-message hidden">
+                Results will be available after the voting period ends.
+            </p>
+            <button id="viewResultsBtn" class="btn-primary" style="display: none;">View Results</button>
+        </div>
+
+        <!-- Voting Form -->
+        <div id="votingForm" class="voting-container hidden">
+            <div class="glass-panel voting-panel">
+                <h2 id="electionTitle" class="election-title">Election</h2>
+                <p id="electionDescription" class="election-description"></p>
+                
+                <form id="ballotForm">
+                    <div id="positionsContainer" class="positions-container">
+                        <!-- Positions will be dynamically rendered -->
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-submit">
+                            <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Submit My Votes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Results View -->
+        <div id="resultsView" class="results-container hidden">
+            <div class="glass-panel results-panel">
+                <div class="results-header">
+                    <h2>Election Results</h2>
+                    <button id="backToVoteBtn" class="btn-secondary hidden">Back to Vote</button>
+                </div>
+                <div id="resultsContent" class="results-content">
+                    <!-- Results will be dynamically rendered -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content glass-panel">
+            <h3 class="modal-title">Confirm Your Votes</h3>
+            <div id="confirmContent" class="modal-message"></div>
+            <p class="modal-warning">⚠️ You cannot change your votes after submission.</p>
+            <div class="modal-actions">
+                <button id="confirmCancelBtn" class="btn-secondary">Review Votes</button>
+                <button id="confirmSubmitBtn" class="btn-primary">Confirm & Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/voting.js"></script>
+</body>
+</html>

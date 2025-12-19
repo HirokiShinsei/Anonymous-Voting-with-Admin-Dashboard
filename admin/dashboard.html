@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Blind Voting System</title>
+    <link rel="stylesheet" href="../site/styles/tailwind.css">
+    <link rel="stylesheet" href="./styles/dashboard.css">
+</head>
+<body>
+    <!-- Sticky Header -->
+    <header class="dashboard-header">
+        <div class="header-content">
+            <div class="header-left">
+                <div class="election-selector">
+                    <label for="electionSelect" class="selector-label">Election:</label>
+                    <select id="electionSelect" class="election-dropdown">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+                <span id="sessionBadge" class="session-badge">Loading...</span>
+            </div>
+            <div class="header-right">
+                <span id="userEmail" class="user-email"></span>
+                <button id="logoutBtn" class="btn-logout">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="dashboard-main">
+        <!-- Session Controls -->
+        <section class="glass-panel session-controls">
+            <h2 class="panel-title">Election Management</h2>
+            <div class="controls-group">
+                <button id="createElectionBtn" class="btn-add">
+                    <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Create New Election
+                </button>
+                <button id="startVotingBtn" class="btn-start" disabled>
+                    <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Start Voting
+                </button>
+                <button id="endVotingBtn" class="btn-end" disabled>
+                    <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+                    </svg>
+                    End Voting
+                </button>
+                <button id="exportResultsBtn" class="btn-export">
+                    <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    Export Results (CSV)
+                </button>
+            </div>
+        </section>
+
+        <!-- Two Column Layout -->
+        <div class="dashboard-grid">
+            <!-- Candidate Management Panel -->
+            <section class="glass-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Candidate Management</h2>
+                    <button id="addCandidateBtn" class="btn-add">
+                        <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Add Candidate
+                    </button>
+                </div>
+                <div id="sessionWarning" class="warning-banner hidden">
+                    ⚠️ Candidate management is disabled during active voting sessions
+                </div>
+                <div id="candidatesList" class="candidates-list">
+                    <div class="loading-state">Loading candidates...</div>
+                </div>
+            </section>
+
+            <!-- Live Results Display -->
+            <section class="glass-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Live Results</h2>
+                    <span id="lastUpdated" class="last-updated">Updated: Never</span>
+                </div>
+                <div id="voteStats" class="vote-stats"></div>
+                <div id="resultsContainer" class="results-container">
+                    <div class="loading-state">No results yet</div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <div id="confirmModal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content glass-panel">
+            <h3 id="confirmTitle" class="modal-title"></h3>
+            <p id="confirmMessage" class="modal-message"></p>
+            <div class="modal-actions">
+                <button id="confirmCancelBtn" class="btn-secondary">Cancel</button>
+                <button id="confirmActionBtn" class="btn-danger">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="candidateModal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content glass-panel">
+            <h3 id="candidateModalTitle" class="modal-title">Add Candidate</h3>
+            <form id="candidateForm">
+                <div class="form-group">
+                    <label class="form-label">Name *</label>
+                    <input type="text" id="candidateName" class="input-glass" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Position *</label>
+                    <input type="text" id="candidatePosition" class="input-glass" placeholder="e.g., President, Vice President" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea id="candidateDescription" class="input-glass" rows="4" placeholder="Brief description of the candidate"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="candidateCancelBtn" class="btn-secondary">Cancel</button>
+                    <button type="submit" class="btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="electionModal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content glass-panel">
+            <h3 class="modal-title">Create New Election</h3>
+            <form id="electionForm">
+                <div class="form-group">
+                    <label class="form-label">Election Title *</label>
+                    <input type="text" id="electionTitle" class="input-glass" placeholder="e.g., Spring 2024 Student Council Election" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea id="electionDescription" class="input-glass" rows="3" placeholder="Brief description of the election"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" style="display: block; margin-bottom: 0.75rem;">
+                        <strong>Voting Type:</strong>
+                    </label>
+                    <div style="background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
+                        <p style="color: rgba(255, 255, 255, 0.9); font-size: 0.875rem; margin: 0;">
+                            <strong>Multi-Position Voting (Recommended)</strong><br>
+                            Voters can vote for all positions (President, VP, Secretary, etc.) in one session.
+                        </p>
+                    </div>
+                    <div style="color: rgba(255, 255, 255, 0.7); font-size: 0.75rem; margin-top: 0.5rem;">
+                        💡 The system ensures one vote per position per voter automatically.
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="electionCancelBtn" class="btn-secondary">Cancel</button>
+                    <button type="submit" class="btn-primary">Create Election</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="./js/dashboard.js"></script>
+</body>
+</html>
