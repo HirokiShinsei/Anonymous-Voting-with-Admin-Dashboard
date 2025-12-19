@@ -77,8 +77,8 @@ voting/
 
 ### Prerequisites
 
-- Web server (Apache, Nginx, or similar)
-- PHP 7.4 or higher
+- Web server (Apache, Nginx, or similar) OR Cloudflare Pages
+- PHP 7.4 or higher (for backend API)
 - MySQL 5.7 or higher
 - Modern web browser (Chrome, Firefox, Safari, Edge)
 
@@ -134,6 +134,156 @@ voting/
    # Using Let's Encrypt
    certbot --nginx -d your-domain.com
    ```
+
+### Cloudflare Pages Deployment
+
+#### 1. **Prepare Your Repository**
+
+Ensure your repository structure is:
+```
+voting/
+├── site/          # This becomes your root directory
+├── admin/
+└── api/           # Deploy separately to Cloudflare Workers or external server
+```
+
+#### 2. **Deploy Frontend to Cloudflare Pages**
+
+```bash
+# Login to Cloudflare
+wrangler login
+
+# Deploy the site
+cd site
+wrangler pages deploy . --project-name=voting-system
+```
+
+Or use the Cloudflare Dashboard:
+1. Go to Pages → Create a project
+2. Connect your Git repository
+3. Set build configuration:
+   - **Build command**: (leave empty)
+   - **Build output directory**: `/site`
+   - **Root directory**: `/`
+
+#### 3. **Configure API Endpoints**
+
+Create a file `site/js/config.js`:
+```javascript
+export const API_CONFIG = {
+    BASE_URL: 'https://your-api-domain.com/api',
+    // Or use Cloudflare Workers
+    // BASE_URL: 'https://voting-api.your-domain.workers.dev'
+};
+```
+
+Update `site/js/voting.js` to use this config:
+```javascript
+import { API_CONFIG } from './config.js';
+const API_BASE = API_CONFIG.BASE_URL;
+```
+
+#### 4. **Set Environment Variables**
+
+In Cloudflare Pages settings:
+- `API_ENDPOINT`: Your backend API URL
+- `ENABLE_ANALYTICS`: `true` or `false`
+
+#### 5. **Configure Custom Domain** (Optional)
+
+```
+Pages → your-project → Custom domains → Set up custom domain
+```
+
+#### 6. **Deploy API to Cloudflare Workers** (Alternative)
+
+```bash
+# In your api directory
+npm init -y
+npm install @cloudflare/wrangler -g
+
+# Create wrangler.toml
+cat > wrangler.toml << EOF
+name = "voting-api"
+type = "javascript"
+account_id = "your-account-id"
+workers_dev = true
+route = ""
+zone_id = ""
+
+[env.production]
+vars = { ENVIRONMENT = "production" }
+EOF
+
+# Deploy
+wrangler publish
+```
+
+### Troubleshooting Cloudflare Deployment
+
+**Issue: "Loading..." stuck on screen**
+
+This usually means the JavaScript module isn't loading. Check:
+
+1. **File paths are correct**:
+   ```javascript
+   // Use relative paths without leading slash for Cloudflare Pages
+   import { something } from './js/voting.js';  // ✅ Correct
+   import { something } from '/js/voting.js';    // ❌ May fail
+   ```
+
+2. **CORS is configured** on your API:
+   ```php
+   header('Access-Control-Allow-Origin: https://your-voting-site.pages.dev');
+   header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+   header('Access-Control-Allow-Headers: Content-Type');
+   ```
+
+3. **Check browser console** for errors:
+   - Right-click → Inspect → Console tab
+   - Look for module loading errors
+
+4. **Verify API endpoint** is accessible:
+   ```bash
+   curl https://your-api-domain.com/api/elections.php
+   ```
+
+5. **Enable debug mode** in your JavaScript files temporarily:
+   ```javascript
+   console.log('Module loaded successfully');
+   console.log('API Base:', API_BASE);
+   ```
+
+**Issue: Module not found errors**
+
+- Ensure all imports use relative paths: `./js/voting.js` not `/js/voting.js`
+- Check that all referenced files exist in your deployment
+- Verify file extensions are included in import statements
+
+**Issue: API calls failing**
+
+1. Check Network tab in browser DevTools
+2. Verify CORS headers on API responses
+3. Ensure API uses HTTPS (required for Cloudflare Pages)
+4. Check API endpoint configuration in your code
+
+**Issue: 404 on routes**
+
+Cloudflare Pages doesn't support server-side routing by default. Use:
+- Hash-based routing: `#/vote` instead of `/vote`
+- Or create a `_redirects` file:
+  ```
+  /admin/*  /admin/index.html  200
+  /*        /index.html         200
+  ```
+
+### Performance Optimization for Cloudflare
+
+```javascript
+// Add to your HTML files
+<link rel="modulepreload" href="./js/voting.js">
+<link rel="preconnect" href="https://your-api-domain.com">
+```
 
 ## ⚙️ Configuration
 
@@ -446,6 +596,20 @@ npm test
 - Confirm voting period has ended
 - Check election status in database
 - Verify results calculation cron job
+
+**Issue: Blank page or infinite loading on Cloudflare Pages**
+- Open browser DevTools (F12) and check Console tab for errors
+- Verify all file paths use relative paths (`./` instead of `/`)
+- Check that API_BASE URL is correctly configured
+- Ensure CORS is enabled on your API server
+- Check Network tab to see if API requests are being blocked
+- Try clearing Cloudflare cache: Cloudflare Dashboard → Caching → Purge Everything
+
+**Issue: "Failed to fetch" errors**
+- Verify API endpoint is using HTTPS
+- Check CORS configuration on API server
+- Ensure API is publicly accessible
+- Test API endpoint directly in browser
 
 ### Debug Mode
 
