@@ -34,14 +34,6 @@
             <p>Loading election...</p>
         </div>
 
-        <!-- Error State -->
-        <div id="errorState" class="glass-panel closed-panel hidden">
-            <div class="closed-icon">⚠️</div>
-            <h2>Unable to Load Election</h2>
-            <p id="errorMessage">There was a problem connecting to the voting system.</p>
-            <button id="retryBtn" class="btn-primary" style="margin-top: 1rem;">Retry</button>
-        </div>
-
         <!-- Voting Closed State -->
         <div id="closedState" class="glass-panel closed-panel hidden">
             <div class="closed-icon">🔒</div>
@@ -111,42 +103,6 @@
         </div>
     </div>
 
-    <script type="module">
-        // Error handler for module loading
-        window.addEventListener('error', (e) => {
-            if (e.message.includes('module') || e.message.includes('import')) {
-                console.error('Module loading error:', e);
-                showError('Failed to load voting system. Please refresh the page.');
-            }
-        });
-
-        function showError(message) {
-            const loadingState = document.getElementById('loadingState');
-            const errorState = document.getElementById('errorState');
-            const errorMessage = document.getElementById('errorMessage');
-            
-            if (loadingState) loadingState.classList.add('hidden');
-            if (errorState) {
-                errorState.classList.remove('hidden');
-                if (errorMessage) errorMessage.textContent = message;
-            }
-        }
-
-        // Retry button handler
-        document.getElementById('retryBtn')?.addEventListener('click', () => {
-            location.reload();
-        });
-
-        // Try to load the main voting module
-        try {
-            import('./js/voting.js').catch(error => {
-                console.error('Failed to load voting module:', error);
-                showError('Configuration error. Please contact the administrator.');
-            });
-        } catch (error) {
-            console.error('Import error:', error);
-            showError('Your browser may not support this voting system. Please try a different browser.');
-        }
-    </script>
+    <script type="module" src="js/voting.js"></script>
 </body>
 </html>
