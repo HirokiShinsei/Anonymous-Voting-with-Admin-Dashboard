@@ -78,15 +78,107 @@ function setupEventListeners() {
     // Modals
     document.getElementById('confirmCancelBtn').addEventListener('click', closeConfirmModal);
     
-    // Close modals on backdrop click
-    document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
-        backdrop.addEventListener('click', (e) => {
-            if (e.target === backdrop) {
-                closeConfirmModal();
-                closeCandidateModal();
-            }
-        });
+    // Success modal OK button
+    document.getElementById('successOkBtn').addEventListener('click', closeSuccessModal);
+
+    // Close modals on backdrop click - optimize by using event delegation
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal-backdrop')) {
+            const modal = e.target.parentElement;
+            if (modal.id === 'confirmModal') closeConfirmModal();
+            else if (modal.id === 'candidateModal') closeCandidateModal();
+            else if (modal.id === 'electionModal') closeElectionModal();
+            else if (modal.id === 'deleteElectionModal') hideModal(document.getElementById('deleteElectionModal'));
+            else if (modal.id === 'successModal') closeSuccessModal();
+        }
     });
+
+    // Delete Election Button
+    const deleteElectionBtn = document.getElementById('deleteElectionBtn');
+    const deleteElectionModal = document.getElementById('deleteElectionModal');
+    const deleteElectionForm = document.getElementById('deleteElectionForm');
+    const deleteElectionName = document.getElementById('deleteElectionName');
+    const deletePassword = document.getElementById('deletePassword');
+    const deleteError = document.getElementById('deleteError');
+    const deleteCancelBtn = document.getElementById('deleteCancelBtn');
+    const deleteSubmitBtn = document.getElementById('deleteSubmitBtn');
+    const deleteSubmitText = document.getElementById('deleteSubmitText');
+    const deleteLoadingIndicator = document.getElementById('deleteLoadingIndicator');
+
+    deleteElectionBtn.addEventListener('click', () => {
+        if (!currentElection) return;
+        
+        deleteElectionName.value = currentElection.title;
+        deletePassword.value = '';
+        hideDeleteError();
+        showModal(deleteElectionModal);
+    });
+
+    deleteCancelBtn.addEventListener('click', () => {
+        hideModal(deleteElectionModal);
+    });
+
+    deleteElectionForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideDeleteError();
+        
+        const password = deletePassword.value;
+        if (!password) {
+            showDeleteError('Please enter your password');
+            return;
+        }
+        
+        deleteSubmitBtn.disabled = true;
+        
+        try {
+            const currentUser = authManager.getCurrentUser();
+            const verifyResult = await authManager.signIn(currentUser.email, password);
+            
+            if (!verifyResult.success) {
+                deleteSubmitBtn.disabled = false;
+                showDeleteError('Incorrect password. Please try again.');
+                return;
+            }
+            
+            setDeleteLoading(true);
+            const result = await adminAPI.deleteElection(currentElection.id);
+            
+            if (result.success) {
+                // Deletion successful - refresh the page to reload everything
+                window.location.reload();
+            } else {
+                setDeleteLoading(false);
+                showDeleteError(result.error || 'Failed to delete election');
+            }
+        } catch (error) {
+            console.error('Delete election error:', error);
+            setDeleteLoading(false);
+            showDeleteError('An unexpected error occurred. Please try again.');
+        }
+    });
+
+    function showDeleteError(message) {
+        deleteError.textContent = message;
+        deleteError.classList.add('show');
+    }
+
+    function hideDeleteError() {
+        deleteError.classList.remove('show');
+    }
+
+    function setDeleteLoading(isLoading) {
+        deleteSubmitBtn.disabled = isLoading;
+        if (isLoading) {
+            deleteSubmitText.style.display = 'none';
+            deleteLoadingIndicator.style.display = 'inline-flex';
+        } else {
+            deleteSubmitText.style.display = 'inline';
+            deleteLoadingIndicator.style.display = 'none';
+        }
+    }
+
+    // Clear error on password input
+    deletePassword.addEventListener('input', hideDeleteError);
 }
 
 // Election Management
@@ -101,11 +193,26 @@ async function loadAllElections() {
         currentElection = allElections[0];
         isSessionOpen = currentElection.is_open;
         updateElectionUI();
+        
+        // Return true to indicate elections were loaded
+        return true;
     } else {
+        // No elections exist - show empty state
+        allElections = [];
+        currentElection = null;
+        isSessionOpen = false;
+        
         document.getElementById('electionSelect').innerHTML = 
-            '<option value="">No elections found</option>';
+            '<option value="">No elections available</option>';
         document.getElementById('sessionBadge').textContent = 'No Election';
         document.getElementById('sessionBadge').className = 'session-badge closed';
+        
+        // Show empty state in panels
+        showEmptyElectionState();
+        updateElectionUI();
+        
+        // Return false to indicate no elections
+        return false;
     }
 }
 
@@ -125,9 +232,16 @@ function populateElectionDropdown() {
 }
 
 async function handleElectionChange(e) {
-    const electionId = e.target.value;
+    const electionId = e ? e.target.value : null;
     
-    if (!electionId) return;
+    if (!electionId) {
+        // No election selected - could be triggered programmatically
+        currentElection = null;
+        isSessionOpen = false;
+        showEmptyElectionState();
+        updateElectionUI();
+        return;
+    }
     
     // Cleanup previous subscriptions
     if (resultsRefreshInterval) {
@@ -156,16 +270,47 @@ async function handleElectionChange(e) {
     }
 }
 
+async function toggleSession(open) {
+    const result = await adminAPI.toggleElectionStatus(currentElection.id, open);
+    
+    if (result.success) {
+        isSessionOpen = open;
+        currentElection = result.data;
+        updateElectionUI();
+        await loadAllElections();
+        await loadResults();
+        closeConfirmModal();
+        
+        const action = open ? 'started' : 'ended';
+        showSuccessModal(
+            'Voting Session Updated',
+            `Voting has been successfully ${action}. ${open ? 'Voters can now cast their votes.' : 'No more votes can be accepted.'}`
+        );
+    } else {
+        closeConfirmModal();
+        showErrorModal('Error', 'Failed to update session: ' + result.error);
+    }
+}
+
 function updateElectionUI() {
     // Update session badge
     const badge = document.getElementById('sessionBadge');
-    badge.textContent = isSessionOpen ? 'Voting Open' : 'Voting Closed';
-    badge.className = `session-badge ${isSessionOpen ? 'open' : 'closed'}`;
+    
+    if (currentElection) {
+        badge.textContent = isSessionOpen ? 'Voting Open' : 'Voting Closed';
+        badge.className = `session-badge ${isSessionOpen ? 'open' : 'closed'}`;
+    } else {
+        badge.textContent = 'No Election';
+        badge.className = 'session-badge closed';
+    }
 
     // Update button states
-    document.getElementById('startVotingBtn').disabled = isSessionOpen;
-    document.getElementById('endVotingBtn').disabled = !isSessionOpen;
-    document.getElementById('addCandidateBtn').disabled = isSessionOpen;
+    const hasElection = currentElection !== null;
+    document.getElementById('deleteElectionBtn').disabled = !hasElection;
+    document.getElementById('startVotingBtn').disabled = !hasElection || isSessionOpen;
+    document.getElementById('endVotingBtn').disabled = !hasElection || !isSessionOpen;
+    document.getElementById('addCandidateBtn').disabled = !hasElection || isSessionOpen;
+    document.getElementById('exportResultsBtn').disabled = !hasElection;
 
     // Show/hide warning
     document.getElementById('sessionWarning').classList.toggle('hidden', !isSessionOpen);
@@ -176,24 +321,93 @@ function updateElectionUI() {
     });
 }
 
-async function toggleSession(open) {
-    const result = await adminAPI.toggleElectionStatus(currentElection.id, open);
+function showEmptyElectionState() {
+    // Show empty state in candidates panel
+    document.getElementById('candidatesList').innerHTML = `
+        <div class="empty-state-container" style="text-align: center; padding: 3rem 1rem;">
+            <svg style="width: 80px; height: 80px; margin: 0 auto 1.5rem; opacity: 0.3;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <h3 style="color: rgba(255, 255, 255, 0.9); font-size: 1.25rem; font-weight: 600; margin-bottom: 0.75rem;">
+                No Elections Created Yet
+            </h3>
+            <p style="color: rgba(255, 255, 255, 0.6); font-size: 0.95rem; margin-bottom: 1.5rem; max-width: 400px; margin-left: auto; margin-right: auto;">
+                Get started by creating your first election. You'll be able to add candidates and manage voting once the election is created.
+            </p>
+            <button onclick="document.getElementById('createElectionBtn').click()" class="btn-primary" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: #DA291C; color: white; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+                <svg style="width: 18px; height: 18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Create Your First Election
+            </button>
+        </div>
+    `;
     
+    // Show empty state in results panel
+    document.getElementById('resultsContainer').innerHTML = `
+        <div class="empty-state-container" style="text-align: center; padding: 3rem 1rem;">
+            <svg style="width: 80px; height: 80px; margin: 0 auto 1.5rem; opacity: 0.3;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            <h3 style="color: rgba(255, 255, 255, 0.9); font-size: 1.25rem; font-weight: 600; margin-bottom: 0.75rem;">
+                No Results Available
+            </h3>
+            <p style="color: rgba(255, 255, 255, 0.6); font-size: 0.95rem;">
+                Create an election and start collecting votes to see results here.
+            </p>
+        </div>
+    `;
+    
+    // Clear vote stats
+    document.getElementById('voteStats').innerHTML = '';
+}
+
+// Election Management
+function openElectionModal() {
+    document.getElementById('electionTitle').value = '';
+    document.getElementById('electionDescription').value = '';
+    showModal(document.getElementById('electionModal'));
+}
+
+function closeElectionModal() {
+    hideModal(document.getElementById('electionModal'));
+    document.getElementById('electionForm').reset();
+}
+
+async function handleElectionSubmit(e) {
+    e.preventDefault();
+    
+    const electionData = {
+        title: document.getElementById('electionTitle').value.trim(),
+        description: document.getElementById('electionDescription').value.trim()
+    };
+
+    // Validate
+    if (!electionData.title) {
+        showErrorModal('Validation Error', 'Please enter an election title');
+        return;
+    }
+
+    const result = await adminAPI.createElection(electionData);
+
     if (result.success) {
-        isSessionOpen = open;
-        currentElection = result.data;
-        updateElectionUI();
-        
-        // Refresh the dropdown to show updated status
+        closeElectionModal();
         await loadAllElections();
         
-        // Refresh results immediately when session changes
-        await loadResults();
+        const newElection = allElections.find(e => e.title === electionData.title);
+        if (newElection) {
+            currentElection = newElection;
+            isSessionOpen = newElection.is_open;
+            document.getElementById('electionSelect').value = newElection.id;
+            updateElectionUI();
+            await loadCandidates();
+            await loadResults();
+        }
+        
+        showSuccessModal('Election Created Successfully', 'You can now add candidates to this election.');
     } else {
-        alert('Failed to update session: ' + result.error);
+        showErrorModal('Error', 'Failed to create election: ' + result.error);
     }
-    
-    closeConfirmModal();
 }
 
 // Candidate Management
@@ -270,10 +484,12 @@ window.deleteCandidate = function(id) {
             if (result.success) {
                 await loadCandidates();
                 await loadResults();
+                closeConfirmModal();
+                showSuccessModal('Candidate Deleted', `${candidate.name} has been successfully removed.`);
             } else {
-                alert('Failed to delete candidate: ' + result.error);
+                closeConfirmModal();
+                showErrorModal('Error', 'Failed to delete candidate: ' + result.error);
             }
-            closeConfirmModal();
         }
     );
 };
@@ -292,7 +508,7 @@ function openCandidateModal(candidate = null) {
 }
 
 function closeCandidateModal() {
-    document.getElementById('candidateModal').classList.add('hidden');
+    hideModal(document.getElementById('candidateModal'));
     document.getElementById('candidateForm').reset();
     editingCandidateId = null;
 }
@@ -301,7 +517,7 @@ async function handleCandidateSubmit(e) {
     e.preventDefault();
     
     if (!currentElection) {
-        alert('No election selected');
+        showErrorModal('Error', 'No election selected');
         return;
     }
     
@@ -313,7 +529,7 @@ async function handleCandidateSubmit(e) {
 
     // Validate
     if (!candidateData.name || !candidateData.position) {
-        alert('Please fill in all required fields');
+        showErrorModal('Validation Error', 'Please fill in all required fields');
         return;
     }
 
@@ -329,12 +545,18 @@ async function handleCandidateSubmit(e) {
             closeCandidateModal();
             await loadCandidates();
             await loadResults();
+            
+            const action = editingCandidateId ? 'updated' : 'created';
+            showSuccessModal(
+                'Success',
+                `Candidate ${candidateData.name} has been successfully ${action}!`
+            );
         } else {
-            alert('Failed to save candidate: ' + result.error);
+            showErrorModal('Error', 'Failed to save candidate: ' + result.error);
         }
     } catch (error) {
         console.error('Error saving candidate:', error);
-        alert('An error occurred while saving the candidate');
+        showErrorModal('Error', 'An error occurred while saving the candidate');
     }
 }
 
@@ -436,7 +658,7 @@ function updateLastUpdatedTime() {
 // Export Results
 async function exportResults() {
     if (!currentElection) {
-        alert('No election selected');
+        showErrorModal('Error', 'No election selected');
         return;
     }
 
@@ -446,11 +668,63 @@ async function exportResults() {
     );
 
     if (!result.success) {
-        alert('Failed to export results: ' + result.error);
+        showErrorModal('Export Failed', 'Failed to export results: ' + result.error);
+    } else {
+        showSuccessModal(
+            'Results Exported',
+            'Election results have been downloaded successfully!'
+        );
     }
 }
 
-// Modals
+// Modals - Update existing functions
+function showModal(modalElement) {
+    modalElement.classList.remove('hidden');
+    requestAnimationFrame(() => {
+        modalElement.style.opacity = '1';
+    });
+}
+
+function hideModal(modalElement) {
+    modalElement.style.opacity = '0';
+    setTimeout(() => {
+        modalElement.classList.add('hidden');
+    }, 200);
+}
+
+function showSuccessModal(title, message) {
+    document.getElementById('successTitle').textContent = title;
+    document.getElementById('successMessage').textContent = message;
+    showModal(document.getElementById('successModal'));
+}
+
+function closeSuccessModal() {
+    hideModal(document.getElementById('successModal'));
+}
+
+function showErrorModal(title, message) {
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmMessage').textContent = message;
+    
+    const confirmBtn = document.getElementById('confirmActionBtn');
+    const cancelBtn = document.getElementById('confirmCancelBtn');
+    
+    confirmBtn.style.display = 'none';
+    cancelBtn.textContent = 'OK';
+    cancelBtn.className = 'btn-primary';
+    
+    const cleanup = () => {
+        confirmBtn.style.display = '';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.className = 'btn-secondary';
+        closeConfirmModal();
+    };
+    
+    cancelBtn.onclick = cleanup;
+    
+    showModal(document.getElementById('confirmModal'));
+}
+
 function showConfirmModal(title, message, onConfirm, isDangerous = false) {
     document.getElementById('confirmTitle').textContent = title;
     document.getElementById('confirmMessage').textContent = message;
@@ -459,62 +733,11 @@ function showConfirmModal(title, message, onConfirm, isDangerous = false) {
     confirmBtn.onclick = onConfirm;
     confirmBtn.className = isDangerous ? 'btn-danger' : 'btn-primary';
     
-    document.getElementById('confirmModal').classList.remove('hidden');
+    showModal(document.getElementById('confirmModal'));
 }
 
 function closeConfirmModal() {
-    document.getElementById('confirmModal').classList.add('hidden');
-}
-
-// Election Modal Management
-function openElectionModal() {
-    document.getElementById('electionTitle').value = '';
-    document.getElementById('electionDescription').value = '';
-    document.getElementById('electionModal').classList.remove('hidden');
-}
-
-function closeElectionModal() {
-    document.getElementById('electionModal').classList.add('hidden');
-    document.getElementById('electionForm').reset();
-}
-
-async function handleElectionSubmit(e) {
-    e.preventDefault();
-    
-    const electionData = {
-        title: document.getElementById('electionTitle').value.trim(),
-        description: document.getElementById('electionDescription').value.trim()
-    };
-
-    // Validate
-    if (!electionData.title) {
-        alert('Please enter an election title');
-        return;
-    }
-
-    const result = await adminAPI.createElection(electionData);
-
-    if (result.success) {
-        closeElectionModal();
-        
-        // Reload elections and select the new one
-        await loadAllElections();
-        
-        // Find and select the newly created election
-        const newElection = allElections.find(e => e.title === electionData.title);
-        if (newElection) {
-            currentElection = newElection;
-            isSessionOpen = newElection.is_open;
-            document.getElementById('electionSelect').value = newElection.id;
-            updateElectionUI();
-            await loadCandidates();
-            await loadResults();
-        }
-        
-        alert('Election created successfully! You can now add candidates.');
-    } else {
-        alert('Failed to create election: ' + result.error);
-    }
+    hideModal(document.getElementById('confirmModal'));
 }
 
 // Utilities
@@ -525,23 +748,12 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Cleanup on page unload
+// Cleanup
 window.addEventListener('beforeunload', () => {
-    if (resultsRefreshInterval) {
-        clearInterval(resultsRefreshInterval);
-    }
-    if (votesSubscription) {
-        adminAPI.unsubscribe(votesSubscription);
-    }
+    if (resultsRefreshInterval) clearInterval(resultsRefreshInterval);
+    if (votesSubscription) adminAPI.unsubscribe(votesSubscription);
 });
 
-// Close election modal on backdrop click
-document.querySelector('#electionModal .modal-backdrop')?.addEventListener('click', (e) => {
-    if (e.target.classList.contains('modal-backdrop')) {
-        closeElectionModal();
-    }
-});
-
-// Protect the page and initialize
+// Initialize
 await authManager.requireAuth();
 init();

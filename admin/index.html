@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Login - Blind Voting System</title>
-    <link rel="stylesheet" href="../site/styles/tailwind.css">
+    <link rel="stylesheet" href="./styles/tailwind.css">
     <style>
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -184,10 +184,8 @@
     </div>
 
     <script type="module">
+        // Change the import path - remove the extra 'js/' if supabase.js is in /admin/js/
         import { authManager } from './js/auth.js';
-
-        // Redirect if already authenticated
-        await authManager.redirectIfAuthenticated('/admin/dashboard.html');
 
         const loginForm = document.getElementById('loginForm');
         const emailInput = document.getElementById('email');
@@ -221,10 +219,8 @@
             const result = await authManager.signIn(email, password);
 
             if (result.success) {
-                // Get return URL or default to dashboard
-                const urlParams = new URLSearchParams(window.location.search);
-                const returnUrl = urlParams.get('return') || '/admin/dashboard.html';
-                window.location.href = decodeURIComponent(returnUrl);
+                // Redirect to dashboard
+                window.location.href = '/admin/dashboard.html';
             } else {
                 setLoading(false);
                 showError(result.error || 'Invalid email or password');

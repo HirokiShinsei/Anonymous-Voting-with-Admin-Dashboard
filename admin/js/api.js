@@ -1,4 +1,4 @@
-import { supabase } from '../../js/supabase.js';
+import { supabase } from './supabase.js';
 
 class AdminAPI {
     /**
@@ -181,6 +181,25 @@ class AdminAPI {
         } catch (error) {
             console.error('Error creating election:', error);
             return { success: false, error: error.message };
+        }
+    }
+
+    // Delete election
+    async deleteElection(electionId) {
+        try {
+            const { error } = await supabase
+                .from('elections')
+                .delete()
+                .eq('id', electionId);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error('Delete election error:', error);
+            return {
+                success: false,
+                error: error.message || 'Failed to delete election'
+            };
         }
     }
 

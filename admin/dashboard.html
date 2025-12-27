@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Blind Voting System</title>
-    <link rel="stylesheet" href="../site/styles/tailwind.css">
+    <link rel="stylesheet" href="./styles/tailwind.css">
     <link rel="stylesheet" href="./styles/dashboard.css">
 </head>
 <body>
@@ -38,6 +38,12 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                     </svg>
                     Create New Election
+                </button>
+                <button id="deleteElectionBtn" class="btn-danger" disabled>
+                    <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    Delete Election
                 </button>
                 <button id="startVotingBtn" class="btn-start" disabled>
                     <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -167,6 +173,65 @@
                     <button type="submit" class="btn-primary">Create Election</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div id="deleteElectionModal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content glass-panel">
+            <h3 class="modal-title">Delete Election</h3>
+            <div class="warning-banner" style="margin-bottom: 1.5rem; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fecaca; padding: 1rem; border-radius: 8px;">
+                <strong>⚠️ Warning: This action cannot be undone!</strong>
+                <p style="margin-top: 0.5rem; font-size: 0.875rem;">
+                    Deleting this election will permanently remove:
+                </p>
+                <ul style="margin-top: 0.5rem; margin-left: 1.5rem; font-size: 0.875rem;">
+                    <li>All candidates</li>
+                    <li>All votes</li>
+                    <li>All election data</li>
+                </ul>
+            </div>
+            <form id="deleteElectionForm">
+                <div class="form-group">
+                    <label class="form-label">Election to Delete</label>
+                    <input type="text" id="deleteElectionName" class="input-glass" readonly style="cursor: not-allowed; opacity: 0.7;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Confirm your password to continue *</label>
+                    <input type="password" id="deletePassword" class="input-glass" placeholder="Enter your admin password" required autocomplete="current-password">
+                </div>
+                <div id="deleteError" class="error-message" style="margin-top: 1rem;"></div>
+                <div class="modal-actions">
+                    <button type="button" id="deleteCancelBtn" class="btn-secondary">Cancel</button>
+                    <button type="submit" id="deleteSubmitBtn" class="btn-danger">
+                        <span id="deleteSubmitText">Delete Election</span>
+                        <span id="deleteLoadingIndicator" style="display: none; align-items: center; gap: 0.5rem;">
+                            <span class="loading-spinner"></span>
+                            Deleting...
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="successModal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content glass-panel" style="max-width: 450px;">
+            <div style="text-align: center; padding: 1rem 0;">
+                <div style="width: 80px; height: 80px; margin: 0 auto 1.5rem; background: rgba(34, 197, 94, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <svg style="width: 48px; height: 48px; color: #22c55e;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </div>
+                <h3 class="modal-title" id="successTitle" style="margin-bottom: 0.75rem;">Success!</h3>
+                <p id="successMessage" class="modal-message" style="color: rgba(255, 255, 255, 0.8); font-size: 0.95rem; margin-bottom: 2rem;">
+                    Operation completed successfully.
+                </p>
+                <button id="successOkBtn" class="btn-primary" style="padding: 0.75rem 2.5rem;">
+                    OK
+                </button>
+            </div>
         </div>
     </div>
 
