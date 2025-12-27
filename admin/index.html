@@ -219,8 +219,8 @@
             const result = await authManager.signIn(email, password);
 
             if (result.success) {
-                // Redirect to dashboard
-                window.location.href = '/admin/dashboard.html';
+                // Redirect to dashboard - use relative path for Cloudflare Pages
+                window.location.href = './dashboard.html';
             } else {
                 setLoading(false);
                 showError(result.error || 'Invalid email or password');
